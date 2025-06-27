@@ -8,17 +8,17 @@ const { parseStringPromise, Builder } = require("xml2js");
 const app = express();
 const PORT = 3000;
 
-// Cấu hình thư mục upload
+// Tạo thư mục uploads nếu chưa có
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 // Cấu hình multer
 const upload = multer({
     dest: uploadDir,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 });
 
-// Cho phép truy cập file tĩnh
+// Truy cập file tĩnh từ public
 app.use(express.static(path.join(__dirname, "public")));
 
 app.post("/upload", upload.single("image"), async (req, res) => {
@@ -26,18 +26,15 @@ app.post("/upload", upload.single("image"), async (req, res) => {
         const file = req.file;
         if (!file) return res.status(400).json({ success: false, error: "Không có file được upload" });
 
-        const filename = file.filename;
-        const ext = path.extname(file.originalname) || ".jpg";
+        const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
         const sceneName = req.body.sceneName || "scene_" + Date.now();
 
-        // Đảm bảo có phần mở rộng
-        const inputImagePath = path.join(uploadDir, filename + ext);
-        fs.renameSync(file.path, inputImagePath); // thêm phần mở rộng nếu cần
+        const inputImagePath = path.join(uploadDir, file.filename + ext);
+        fs.renameSync(file.path, inputImagePath); // thêm đuôi .jpg
 
-        // Đường dẫn file cấu hình và lệnh chạy
-        const configPath = path.join(__dirname, "templates", "vtour-multires.config");
+        // Gọi lệnh krpanotools.exe
         const krpanoExe = path.join(__dirname, "krpanotools.exe");
-
+        const configPath = path.join(__dirname, "templates", "vtour-multires.config");
         const quote = s => `"${s}"`;
         const command = `${quote(krpanoExe)} makepano ${quote(configPath)} ${quote(inputImagePath)}`;
         console.log("👉 RUN:", command);
@@ -53,7 +50,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
             const outputDir = path.join(__dirname, "public", "panos", sceneName);
 
             if (!fs.existsSync(panoDir)) {
-                return res.status(500).json({ success: false, error: "Không tìm thấy thư mục panos sau xử lý" });
+                return res.status(500).json({ success: false, error: "Không tìm thấy thư mục tile (panos)" });
             }
 
             const tileFolders = fs.readdirSync(panoDir).filter(name =>
@@ -65,11 +62,14 @@ app.post("/upload", upload.single("image"), async (req, res) => {
             }
 
             const tileFolder = tileFolders[0];
+
             if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
             fs.renameSync(path.join(panoDir, tileFolder), path.join(outputDir, tileFolder));
 
-            fs.rmSync(panoDir, { recursive: true, force: true }); // Xoá thư mục gốc
+            // Xóa thư mục panos tạm
+            fs.rmSync(panoDir, { recursive: true, force: true });
 
+            // Thêm vào tour.xml
             const xmlPath = path.join(__dirname, "public", "tour.xml");
             const xmlRaw = fs.readFileSync(xmlPath, "utf-8");
             const xmlJson = await parseStringPromise(xmlRaw);
@@ -94,7 +94,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
             const updatedXml = builder.buildObject(xmlJson);
             fs.writeFileSync(xmlPath, updatedXml, "utf-8");
 
-            console.log("✅ Scene đã thêm thành công:", sceneName);
+            console.log("✅ Scene đã thêm:", sceneName);
             res.json({ success: true, message: "✔️ Scene added", scene: sceneName });
         });
 
