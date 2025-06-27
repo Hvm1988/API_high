@@ -24,7 +24,9 @@ const upload = multer({ storage });
 
 // Cho phép truy cập file tĩnh
 app.use(express.static(path.join(__dirname, "public")));
-
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "tour.html"));
+});
 // Xử lý upload và thêm scene vào tour.xml
 app.post("/upload", upload.single("image"), async (req, res) => {
   try {
