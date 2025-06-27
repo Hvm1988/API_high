@@ -1,0 +1,71 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Upload Scene mới cho krpano</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+
+        input, select {
+            margin-bottom: 10px;
+            display: block;
+            width: 300px;
+            padding: 5px;
+        }
+
+        label {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload Scene mới cho krpano</h1>
+    <form id="uploadForm">
+        <label>Ảnh panorama (.jpg):</label>
+        <input type="file" name="image" accept=".jpg,.jpeg" required />
+
+        <label>Tên Scene (vd: scene_7):</label>
+        <input type="text" name="sceneName" required />
+
+        <label>ath hotspot (góc ngang):</label>
+        <input type="number" name="ath" value="0" />
+
+        <label>atv hotspot (góc dọc):</label>
+        <input type="number" name="atv" value="0" />
+
+        <label>Scene sẽ chuyển đến khi click hotspot:</label>
+        <input type="text" name="linkedscene" required />
+
+        <button type="submit">Tải lên và tạo scene</button>
+    </form>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            try {
+                const res = await fetch("http://localhost:3000/upload", {
+                    method: "POST",
+                    body: formData
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert("✔ Upload thành công!");
+                    if (window.opener?.krpano) {
+                        window.opener.krpano.call("loadpano('tour.xml', null, MERGE, BLEND(1));");
+                        window.opener.buildSceneMenu?.();
+                    }
+                } else {
+                    alert("❌ Lỗi: " + result.error);
+                }
+            } catch (err) {
+                alert("🚫 Kết nối thất bại: " + err.message);
+            }
+        });
+    </script>
+</body>
+</html>
