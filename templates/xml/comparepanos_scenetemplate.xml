@@ -1,0 +1,5 @@
+﻿
+	<scene name="scene_[BASENAME]" title="[span style='font-weight:bold;font-size:18px;'][NAME][/span][br][TYPE] [WIDTH]x[HEIGHT]" onstart=""[SCENEPARAMETERS][THUMB][GPS][DEVICE]>
+		[PREVIEW]
+		[IMAGE]
+	</scene>

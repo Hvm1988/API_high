@@ -1,0 +1,400 @@
+﻿<krpano version="1.22" bgcolor="0x333333" title="Compare Panos">
+
+	
+	<!-- select the viewing range limits for partial panos: "lookrange" or "range" or "fullrange" -->
+	<view limitview="lookrange" />
+	<control zoomtocursor="true" bouncinglimits="true" />
+	
+	
+	[SCENES]
+	
+	
+	<action name="create_thumbs" autorun="onstart" scope="local">
+		for(side=1, side LE 2, side+=1,
+			addlayer(auto,box);
+			addlayer(auto,opener);
+			addlayer(('thumbs' + side),thumbcontainer);
+			
+			set(box, parent=ui, type=container, align=calc(side == 1 ? 'left' : 'right'), zorder=99, width=0, height=100%, x=-120);
+			
+			set(opener, type=text, parent=get(box.name), flow=false, x=-0);
+			if(side == 1, set(opener, align=right, edge=left, text='Left'),  set(opener, align=left, edge=right, text='Right'); );
+			opener.loadstyle(button);
+			opener.thumbcontainer = thumbcontainer;
+			opener.onclick = 'tween(parentobject.x|thumbcontainer.alpha, (parentobject.x LT 0 ? "0|1" : "-120|0"));';
+			
+			set(thumbcontainer, parent=get(box.name), type=scrollarea, direction=v, parentmaskchildren=false, alpha=0,
+				align=calc(side == 1 ? 'left' : 'right'),
+				flowchildren=v, childflowspacing=16, childmargin=16, 
+				onresize=calc(box.path+'.width = width; events.dispatch(onresize);'),
+			);
+				
+			forall(scene, s,
+				addlayer(auto,thumb);
+				set(thumb, url=get(s.thumburl), width=100, height=prop, parent=get(thumbcontainer.name), bgshadow='0 2 4 0x000000 0.5');
+				layerkrpanoscene = 'layer[' + (side == 1 ? 'krpano1' : 'krpano2') + '].scene';
+				thumb.onclick = layerkrpanoscene + ' = ' + s.index;
+				link(thumb.bgborder, (layerkrpanoscene + ':' + layerkrpanoscene +' == ' + s.index + ' ? "4 0xFFFFFF 1" : "2 0xFFFFFF"'));
+				if(side == 1, s.thumb1 = thumb; , s.thumb2 = thumb; );
+			);
+		);
+	</action>
+	
+	
+	<style name="subkrpano" type="krpano" scene="0" onloaded.addevent="subkrpano_onloaded()" />
+	
+	<action name="subkrpano_onloaded" type="js"><![CDATA[
+		var subkrpano = caller.krpano;
+		
+		subkrpano.events.addListener("onnewpano", function(){ krpano.actions.invalidatescreen(); });
+		
+		function subkrpano_loadscene()
+		{
+			var scene_element = krpano.scene.getItem(caller.scene);
+			if (scene_element)
+			{
+				var side = caller.name == "krpano1" ? 1 : 2;
+				krpano.set("layer[credit" + side +"].text", scene_element.title);
+				subkrpano.actions.loadxml(('<krpano>' + scene_element.content  + '</krpano>'), "view.limitview=off&view.fovmin=0", "IMAGEANDVIEW", "BLEND(0.5)");
+				
+				var thumb = krpano["thumb" + side] = scene_element["thumb" + side];
+				if (thumb)
+				{
+					krpano.call("layer[thumbs" + side +"].scrolltocenter(0," + (thumb.pixely + thumb.pixelheight/2) + ")");
+				}
+			}
+			else
+			{
+				krpano.actions.error("scene not found: " + caller.scene); 
+			}
+		}
+		
+		// when changing the "scene" attribute, automatically load that scene
+		krpano.addChangeListener(caller, "scene", subkrpano_loadscene);
+		
+		subkrpano_loadscene();
+	]]></action>
+	
+
+
+	<layer name="krpano1container" type="container" safearea="false" x="0%" width="50%" height="100%" gridfit="false" maskchildren="true" enabled="false" zorder="0">
+		<layer name="krpano1" style="subkrpano" scene="0" align="left" width="200%" height="100%" gridfit="false" />
+	</layer>
+
+	<layer name="krpano2container" type="container" safearea="false" x="50%" width="50%" height="100%" gridfit="false" maskchildren="true" enabled="false" zorder="0">
+		<layer name="krpano2" style="subkrpano" scene="1" align="right" width="200%" height="100%" gridfit="false" />
+	</layer>
+	
+
+	<action name="compare_scenes" scope="local" args="scene1, scene2">
+		layer[krpano1].scene = scene1;
+		layer[krpano2].scene = scene2;
+	</action>
+
+
+	<events onresize="resize_viewers();"
+			onviewchange="sync_viewers();"
+			/>
+
+
+	<action name="resize_viewers" scope="local">
+		w = stagewidth;
+		h = stageheight;
+		if(display.safearea_inset,	// iPhone 'notch' fullscreen mode support
+			w = display.safearea_inset.sw;
+			h = display.safearea_inset.sh;
+		);
+		layer[krpano1].width = w;
+		layer[krpano1].height = h;
+		layer[krpano2].width = w;
+		layer[krpano2].height = h;
+		
+		if(thumb1, layer[thumbs1].scrolltocenter(0,(thumb1.pixely + thumb1.pixelheight/2)); );
+		if(thumb2, layer[thumbs2].scrolltocenter(0,(thumb2.pixely + thumb2.pixelheight/2)); );
+	</action>
+	
+
+	<action name="sync_viewers" scope="local">
+		krpano1 = layer[krpano1].krpano;
+		krpano2 = layer[krpano2].krpano;
+		
+		<!-- merge the image-based zoom limits (2.0x) -->
+		krpano1.view.pixelzoom = 2.0;
+		krpano2.view.pixelzoom = 2.0;
+		view.fovmin = min(krpano1.view.fov, krpano2.view.fov);
+		
+		<!-- merge the viewing limits from both pano images -->
+		image1 = krpano1.image;
+		image2 = krpano2.image;
+		view.hlookatmin = min(image1.hlookatmin, image2.hlookatmin);
+		view.hlookatmax = max(image1.hlookatmax, image2.hlookatmax);
+		view.vlookatmin = min(image1.vlookatmin, image2.vlookatmin);
+		view.vlookatmax = max(image1.vlookatmax, image2.vlookatmax);
+		
+		<!-- sync the view of the sub-viewers to the main view -->
+		krpano1.view.syncto(get(view));
+		krpano2.view.syncto(get(view));
+	</action>
+
+
+
+	<style name="button" type="text" zorder="2"
+	       css="text-align:center;"
+	       padding="4 8"
+	       bgborder="4 0xFFFFFF 1"
+	       bgroundedge="1"
+	       bgshadow="0 1 4 0x000000 1.0"
+	       onover="set(bgcolor, 0xC7E4FC);"
+	       onout="calc(bgcolor, pressed ? 0x90CAF9 : 0xFFFFFF);"
+	       ondown="set(bgcolor, 0x90CAF9);"
+	       onup="calc(bgcolor, hovering ? 0xC7E4FC : 0xFFFFFF);"
+	       />
+
+	<style name="button_selected"
+	       css="text-align:center; text-decoration:underline;"
+	       />
+
+	<layer name="ui" type="container" width="100%" height="100%" zorder="2" autoalpha="true">
+
+		<layer name="title" type="text"
+			text="get:title"
+			align="top" y="20" width="30%" zorder="99"
+			bg="false" css="color:white;font-weight:bold;font-size:18px;text-align:center;" txtshadow="0 1 4 0x000000 1.0"
+			/>
+				
+		<layer name="credit1" type="text"
+			align="lefttop" x="20" y="20" width="33%" zorder="99" handcursor="false"
+			bg="false" css="color:white;text-align:left;" txtshadow="0 1 4 0x000000 1.0"
+			scale="link:stagewidth:(stagewidth LT 400) OR device.mobile ? 0.6 : 1.0"
+			/>
+			
+		<layer name="credit2" type="text" 
+			align="righttop" x="20" y="20" width="33%" zorder="99" handcursor="false"
+			bg="false" css="color:white;text-align:right;" txtshadow="0 1 4 0x000000 1.0"
+			scale="link:stagewidth:(stagewidth LT 400) OR device.mobile ? 0.6 : 1.0"
+			/>
+
+		<layer name="button_info" type="text"
+			text="Select Mode:" bg="false" align="bottom" y="130" css="color:#FFFFFF;" txtshadow="0 1 2 0x000000 1.0" enabled="false" zorder="2" 
+			/>
+
+		<layer name="button_side_by_side" style="button" align="bottom" x="-60" y="60" width="100"
+			text="Side-by-Side"
+			onclick="side_by_side(tween);"
+			/>
+
+		<layer name="button_top_bottom" style="button" align="bottom" x="+60" y="60" width="100"
+			text="Top-Bottom"
+			onclick="top_bottom(tween);"
+			/>
+
+		<layer name="button_split_screen" style="button|button_selected" align="bottom" x="0" y="20" width="100"
+			text="Split-Screen"
+			onclick="split_screen(tween,0.5);"
+			/>
+
+		<layer name="button_left_only" style="button" align="bottom" x="-120" y="20" width="100"
+			text="Left only"
+			onclick="left_only(tween);"
+			/>
+
+		<layer name="button_right_only" style="button" align="bottom" x="+120" y="20" width="100"
+			text="Right only"
+			onclick="right_only(tween);"
+			/>
+
+		<layer name="button_overlap_blending" style="button" align="bottom" x="0" y="100" width="100"
+			text="Overlapped"
+			onclick="overlap_blending(tween);"
+			/>
+	
+	</layer>
+	
+	<layer name="split_slider" type="container" safearea="false" zorder="1"
+		x="50%" edge="top" width="20" height="100%" bgcapture="true" cursor="ew-resize" enablechildren="false" autoalpha="true"
+		ondown="asyncloop(pressed, x=(mouse.x/stagewidth * 100) + '%'; set_split_screen(set, (1-mouse.x/stagewidth),true) );"
+		>
+		<layer type="container" align="top" width="3" height="100%" bgcolor="0xFFFFFF" bgshadow="0 0 16 0x000000 1.0" bgalpha="1" />
+	</layer>
+
+
+	<layer name="blend_slider" type="container" zorder="1" autoalpha="true" alpha="0"
+		align="bottom" y="200" width="200" height="16"
+		bgalpha="0.5" bgcolor="0xFFFFFF" bgborder="1 0xFFFFFF 0.2" bgroundedge="9" bgblur="5"
+		>
+		<layer name="blend_grip" align="left" edge="center" style="button" width="48" height="28"
+			bgroundedge="20" padding="0" textalign="center" text="50%" x="50%"
+			ondown.addevent="asyncloop(pressed,
+					pos = clamp((mouse.stagex - parentobject.stagex) / parentobject.pixelwidth, 0, 1);
+					x = 100*pos + '%';
+					text = (100-floor(100*pos)) + ':' + floor(100*pos);
+					layer[krpano2container].alpha = pos;
+					);"
+			/>
+	</layer>
+
+
+	<action name="set_active_button" scope="local" args="activebutton">
+		layer[button_overlap_blending].loadstyle(button);
+		layer[button_side_by_side].loadstyle(button);
+		layer[button_top_bottom].loadstyle(button);
+		layer[button_left_only].loadstyle(button);
+		layer[button_split_screen].loadstyle(button);
+		layer[button_right_only].loadstyle(button);
+		layer[get(activebutton)].loadstyle(button|button_selected);
+	</action>
+
+
+	<!--
+		Actions for changing the modes - the first argument (%1) can be
+		either 'set' for instant changes or 'tween' for animated changes.
+	-->
+	<action name="side_by_side">
+		set_active_button('button_side_by_side');
+
+		%1(layer[blend_slider].alpha, 0.0);
+		%1(layer[split_slider].alpha, 0.0);
+		%1(layer[split_slider].x, 50%);
+
+		%1(layer[krpano1container].alpha, 1.0);
+		%1(layer[krpano1container].x, 0%);
+		%1(layer[krpano1container].y, 0%);
+		%1(layer[krpano1container].width, 50%);
+		%1(layer[krpano1container].height, 100%);
+		%1(layer[krpano1].x, -50%);
+
+		%1(layer[krpano2container].alpha, 1.0);
+		%1(layer[krpano2container].x, 50%);
+		%1(layer[krpano2container].y, 0%);
+		%1(layer[krpano2container].width, 50%);
+		%1(layer[krpano2container].height, 100%);
+		%1(layer[krpano2].x, -50%);
+		
+		control.zoomtocursor = false;
+	</action>
+
+	<action name="top_bottom">
+		set_active_button('button_top_bottom');
+
+		%1(layer[blend_slider].alpha, 0.0);
+		%1(layer[split_slider].alpha, 0,0);
+		%1(layer[split_slider].x, 50%);
+
+		%1(layer[krpano1container].alpha, 1.0);
+		%1(layer[krpano1container].x, 0%);
+		%1(layer[krpano1container].y, 0%);
+		%1(layer[krpano1container].width, 100%);
+		%1(layer[krpano1container].height, 50%);
+		%1(layer[krpano1].x, 0%);
+
+		%1(layer[krpano2container].alpha, 1.0);
+		%1(layer[krpano2container].x, 0%);
+		%1(layer[krpano2container].y, 50%);
+		%1(layer[krpano2container].width, 100%);
+		%1(layer[krpano2container].height, 50%);
+		%1(layer[krpano2].x, 0%);
+		
+		control.zoomtocursor = false;
+	</action>
+
+	<action name="set_split_screen" scope="local" args="mode, split">
+		%1(layer[krpano1container].alpha, 1.0);
+		%1(layer[krpano1container].x, 0%);
+		%1(layer[krpano1container].y, 0%);
+		%1(layer[krpano1container].width, ((1-split) * 100 + '%'));
+		%1(layer[krpano1container].height, 100%);
+		%1(layer[krpano1].x, 0%);
+
+		%1(layer[krpano2container].alpha, 1.0);
+		%1(layer[krpano2container].x, ((1-split) * 100 + '%'));
+		%1(layer[krpano2container].y, 0%);
+		%1(layer[krpano2container].width, ((split * 100 + '%')));
+		%1(layer[krpano2container].height, 100%);
+		%1(layer[krpano2].x, 0%);
+	</action>
+
+	<action name="split_screen">
+		set_active_button('button_split_screen');
+
+		%1(layer[blend_slider].alpha, 0.0);
+		%1(layer[split_slider].alpha, 1.0);
+		%1(layer[split_slider].x, 50%);
+
+		set_split_screen(%1, 0.5);
+		
+		control.zoomtocursor = true;
+	</action>
+
+	<action name="left_only">
+		set_active_button('button_left_only');
+
+		%1(layer[blend_slider].alpha, 0.0);
+		%1(layer[split_slider].alpha, 0.0);
+		%1(layer[split_slider].x, 100%);
+
+		set_split_screen(%1, 0.0);
+	</action>
+
+	<action name="right_only">
+		set_active_button('button_right_only');
+
+		%1(layer[blend_slider].alpha, 0.0);
+		%1(layer[split_slider].alpha, 0.0);
+		%1(layer[split_slider].x, 0%);
+
+		set_split_screen(%1, 1.0);
+	</action>
+
+	<action name="overlap_blending">
+		set_active_button('button_overlap_blending');
+
+		%1(layer[blend_slider].alpha, 1.0);
+		%1(layer[blend_grip].x, 50%);
+		set(layer[blend_grip].text, '50:50');
+
+		%1(layer[split_slider].alpha, 0.0);
+		%1(layer[split_slider].x, 50%);
+
+		%1(layer[krpano1container].alpha, 1.0);
+		%1(layer[krpano1container].x, 0%);
+		%1(layer[krpano1container].y, 0%);
+		%1(layer[krpano1container].width, 100%);
+		%1(layer[krpano1container].height, 100%);
+		%1(layer[krpano1].x, 0%);
+
+		%1(layer[krpano2container].alpha, 0.5);
+		%1(layer[krpano2container].x, 0%);
+		%1(layer[krpano2container].y, 0%);
+		%1(layer[krpano2container].width, 100%);
+		%1(layer[krpano2container].height, 100%);
+		%1(layer[krpano2].x, 0%);
+		
+		control.zoomtocursor = true;
+	</action>
+
+
+	
+	<!-- select the startup mode -->
+	<action autorun="onstart">
+		//side_by_side(set);
+		//top_bottom(set);
+		split_screen(set,0.5);
+		//overlap_blending(set);
+	</action>
+
+	<layer name="doubleclickinfo" parent="ui"
+		type="text" 
+		text.mouse="Double-Click for Full-view"
+		text.touch="Double-Tap for Full-view"
+		xbg="false" align="center" css="font-size:16px;font-weight:bold;color:#FFFFFF;" txtshadow="0 1 2 0x000000 1.0" 
+		bgcolor="0" bgalpha="0.4" bgroundedge="16" padding="8 12"
+		onclick="stopdelayedcall(doubleclickinfo); tween(alpha,0,0.2,default,remove());"
+		onloaded="delayedcall(doubleclickinfo, 3,onclick());"
+		/>
+	
+	<events ondoubleclick="
+		callwith(layer[ui], tween(alpha, (alpha LT 0.5 ? 1.0 : 0.0)));
+		" />
+
+
+</krpano>

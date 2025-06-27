@@ -1,0 +1,12 @@
+﻿
+	<scene name="scene_[BASENAME_LOW]" title="[NAME]" onstart=""[SCENEPARAMETERS][THUMB][GPS][DEVICE]>
+		
+		<control bouncinglimits="calc:image.cube ? true : false" />
+
+		[VIEW]
+
+		[PREVIEW]
+
+		[IMAGE]
+
+	</scene>
