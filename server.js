@@ -64,6 +64,9 @@ app.post("/upload", upload.single("image"), async (req, res) => {
   }
 });
 
+
+app.use('/panos', express.static(path.join(__dirname, 'public', 'panos')));
+
 app.listen(PORT, () => {
   console.log("✅ Server running at http://localhost:" + PORT);
 });
