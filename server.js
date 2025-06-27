@@ -5,8 +5,8 @@ const path = require("path");
 const { parseStringPromise, Builder } = require("xml2js");
 
 const app = express();
-//const cors = require("cors");
-//app.use(cors()); // hoặc cấu hình domain cụ thể nếu muốn bảo mật hơn
+const cors = require("cors");
+app.use(cors()); // hoặc cấu hình domain cụ thể nếu muốn bảo mật hơn
 const PORT = process.env.PORT || 3000;
 
 // Thư mục lưu ảnh
