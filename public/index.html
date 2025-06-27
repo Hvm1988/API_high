@@ -1,0 +1,107 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+	<title>krpano - R0013432</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+	<meta name="mobile-web-app-capable" content="yes" />
+	<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+	<meta http-equiv="x-ua-compatible" content="IE=edge" />
+	<style>
+		html {
+			height: 100%;
+		}
+
+		body {
+			height: 100%;
+			overflow: hidden;
+			margin: 0;
+			padding: 0;
+			font-family: Arial, Helvetica, sans-serif;
+			font-size: 16px;
+			color: #FFFFFF;
+			background-color: #000000;
+		}
+
+		#sceneMenu {
+			position: fixed;
+			top: 10px;
+			left: 10px;
+			z-index: 9999;
+			background: rgba(0, 0, 0, 0.6);
+			padding: 10px;
+			border-radius: 8px;
+			font-size: 14px;
+		}
+
+			#sceneMenu button {
+				display: block;
+				margin: 4px 0;
+				width: 100px;
+				cursor: pointer;
+			}
+	</style>
+</head>
+<body>
+
+	<!-- Khung hiển thị krpano -->
+	<div id="pano" style="width:100%;height:100%;">
+		<noscript><table style="width:100%;height:100%;"><tr style="vertical-align:middle;"><td><div style="text-align:center;">ERROR:<br /><br />Javascript not activated<br /><br /></div></td></tr></table></noscript>
+	</div>
+	<div id="pano" style="width:100%;height:100%;"></div>
+
+	<a href="Upload.html" target="_blank" style="
+      position: absolute; top: 10px; right: 10px;
+      background: white; color: black; padding: 10px;
+      text-decoration: none; border-radius: 5px;
+      font-weight: bold; z-index: 999;">
+		➕ Upload Scene Mới
+	</a>
+
+	<script src="tour.js"></script>
+	<!-- Menu điều khiển chuyển scene -->
+	<div id="sceneMenu"></div>
+
+	<!-- Nạp script và khởi tạo krpano -->
+	<script src="tour.js"></script>
+	<script>
+		let krpano = null;
+
+		embedpano({
+			xml: "tour.xml",
+			target: "pano",
+			html5: "prefer",
+			passQueryParameters: "startscene,startlookat",
+			onready: function (krpanoInterface) {
+				krpano = krpanoInterface;
+				buildSceneMenu();
+			}
+		});
+
+		function loadScene(sceneName) {
+			if (krpano) {
+				krpano.call("loadscene(" + sceneName + ", null, MERGE, BLEND(1));");
+			}
+		}
+
+		function buildSceneMenu() {
+			const sceneMenu = document.getElementById("sceneMenu");
+			sceneMenu.innerHTML = "<b>CHỌN CẢNH</b><br>";
+
+			// Lấy danh sách scenes từ krpano
+			const count = parseInt(krpano.get("scene.count"));
+			for (let i = 0; i < count; i++) {
+				const name = krpano.get(`scene[${i}].name`);
+				const title = krpano.get(`scene[${i}].title`) || name;
+
+				const btn = document.createElement("button");
+				btn.textContent = title;
+				btn.onclick = () => loadScene(name);
+				sceneMenu.appendChild(btn);
+			}
+		}
+	</script>
+
+</body>
+</html>
