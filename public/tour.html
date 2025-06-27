@@ -1,0 +1,84 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>krpano - Upload Panorama</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            color: #fff;
+        }
+
+        #pano {
+            width: 100%;
+            height: 100%;
+        }
+
+        #controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <input type="file" id="panoUpload" accept="image/*">
+        <button onclick="loadLocalPanorama()">Xem Panorama</button>
+    </div>
+
+    <div id="pano"></div>
+
+    <script src="tour.js"></script>
+    <script>
+        embedpano({
+            xml: "tour.xml",
+            target: "pano",
+            passQueryParameters: "startscene,startlookat",
+            onready: function (krpanoInterface) {
+                window.krpano = krpanoInterface;
+            }
+        });
+
+        function loadLocalPanorama() {
+            const input = document.getElementById('panoUpload');
+            const file = input.files[0];
+
+            if (!file) {
+                alert("Vui lòng chọn ảnh panorama (.jpg, .png...)");
+                return;
+            }
+
+            const url = URL.createObjectURL(file);
+            const krpano = window.krpano;
+            const sceneName = "uploaded_scene_" + Date.now();
+
+            if (!krpano || typeof krpano.call !== "function") {
+                alert("krpano chưa sẵn sàng!");
+                return;
+            }
+
+            // Tạo scene mới từ template
+            krpano.call(`
+          copy(scene[${sceneName}], scene[scene_template]);
+          set(scene[${sceneName}].title, 'Ảnh tải lên');
+          set(scene[${sceneName}].thumburl, ${url});
+          set(scene[${sceneName}].image.type, flat);
+          set(scene[${sceneName}].image.rect.url, ${url});
+          set(scene[${sceneName}].view.fov, 100);
+        `);
+
+            krpano.call(`loadscene(${sceneName}, null, MERGE, BLEND(1));`);
+            krpano.call("skin_setup_menu();");
+        }
+    </script>
+
+</body>
+</html>
